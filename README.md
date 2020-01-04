@@ -8,3 +8,5 @@ Beagleboard Bela + pepper based drum machine written in Supercollider
 Buttons swap instrument sets
 
 Audio input is passed through reverb and mixed with drums
+
+Hardware here: https://shop.bela.io/pepper
