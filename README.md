@@ -1,2 +1,2 @@
-# transmogrifier
-Beagleboard Bela based CV &lt;=> OSC &lt;=> MIDI translator
+# Drum machine
+Beagleboard Bela + pepper based drum machine
