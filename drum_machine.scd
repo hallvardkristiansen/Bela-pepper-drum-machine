@@ -16,11 +16,27 @@ s.options.numOutputBusChannels = 2;
 s.waitForBoot{
 	"Server Booted".postln;
 
+	~modes = 9;
+	~mode = 0;
+	~leds = [6,7,10,2,3,0,1,4,5,8];
 
-	~knob5 = 0;
-	~knob6 = 0;
-	~knob7 = 0;
-	~knob8 = 0;
+	~cv1_out=0;
+	~cv2_out=1;
+	~cv3_out=2;
+	~cv4_out=3;
+	~t1_out=4;
+	~t2_out=5;
+	~t3_out=6;
+	~t4_out=7;
+
+	~knob1 = 0.5;
+	~knob2 = 0.5;
+	~knob3 = 0.5;
+	~knob4 = 0.5;
+	~knob5 = 0.5;
+	~knob6 = 0.5;
+	~knob7 = 0.5;
+	~knob8 = 0.5;
 
 	~trg0 = 0;
 	~trg1 = 0;
@@ -30,6 +46,11 @@ s.waitForBoot{
 	~trg5 = 0;
 	~trg6 = 0;
 	~trg7 = 0;
+
+
+	MIDIClient.init;
+	MIDIIn.connectAll;
+
 
 	SynthDef(\ledblink, {
 		|ledpin|
@@ -215,20 +236,6 @@ s.waitForBoot{
 		Out.ar( out, Pan2.ar( sig, pan, amp ) );
 	}).send(s);
 
-
-	SynthDef(\cello1, {
-		| out=0, amp=0.8, fund_freq=540, pan=0.0, gate=0 |
-		var freq = \freq.kr(440 * gate);
-		var osc1 = Pulse.ar(freq, 0.1);
-		var osc2 = Pulse.ar(freq);
-		var lfo = 0.1 * SinOsc.kr(7.5);
-		var oscs = (osc1 + osc2) * 0.5;
-		var aenv = EnvGen.ar(Env.asr(0.06, 1, 0.3), gate, doneAction: Done.freeSelf);
-		oscs = DFM1.ar(oscs, EnvGen.kr(Env.adsr(0, 3.29, 0.78, 3), gate).linexp(0, 1, 40,  10000), 0) * aenv;
-		Out.ar(out, Pan2.ar( oscs * (1 + lfo), pan, amp ));
-	}).send(s);
-
-
 	SynthDef(\reverb, {| inChan = 0, amp=0.8, pan=0.0, mix=0.0, room=0.0, damp=0.0|
 		var in, snd;
 		in = SoundIn.ar([0,1]);
@@ -238,6 +245,28 @@ s.waitForBoot{
 
 	s.sync;
 
+	~effect = Synth(\reverb, [amp: 0.8, pan: 0.0, mix: 0.0, room: 0.0, damp: 0.0]);
+
+	~knobMonitor1 = {
+		var a0 = AnalogIn.kr(0);
+		a0 = a0.round(0.05);
+		SendReply.kr(Changed.kr(a0), '/knobMonitor1', [a0]);
+	}.play;
+	~knobMonitor2 = {
+		var a1 = AnalogIn.kr(1);
+		a1 = a1.round(0.05);
+		SendReply.kr(Changed.kr(a1), '/knobMonitor2', [a1]);
+	}.play;
+	~knobMonitor3 = {
+		var a2 = AnalogIn.kr(2);
+		a2 = a2.round(0.05);
+		SendReply.kr(Changed.kr(a2), '/knobMonitor3', [a2]);
+	}.play;
+	~knobMonitor4 = {
+		var a3 = AnalogIn.kr(3);
+		a3 = a3.round(0.05);
+		SendReply.kr(Changed.kr(a3), '/knobMonitor4', [a3]);
+	}.play;
 	~knobMonitor5 = {
 		var a4 = AnalogIn.kr(4);
 		a4 = a4.round(0.05);
@@ -259,39 +288,49 @@ s.waitForBoot{
 		SendReply.kr(Changed.kr(a7), '/knobMonitor8', [a7]);
 	}.play;
 
+
+	OSCdef('listenToKnob1', {
+		arg msg;
+		~knob1 = msg[3];
+	}, '/knobMonitor1');
+	OSCdef('listenToKnob2', {
+		arg msg;
+		~knob2 = msg[3];
+	}, '/knobMonitor2');
+	OSCdef('listenToKnob3', {
+		arg msg;
+		~knob3 = msg[3];
+	}, '/knobMonitor3');
+	OSCdef('listenToKnob4', {
+		arg msg;
+		~knob4 = msg[3];
+	}, '/knobMonitor4');
 	OSCdef('listenToKnob5', {
 		arg msg;
-		~knob5 = msg[3] / 5;
-		~effect.set(mix: ~knob5);
+		~knob5 = msg[3];
+		~effect.set(\mix, ~knob5);
 	}, '/knobMonitor5');
 	OSCdef('listenToKnob6', {
 		arg msg;
-		~knob6 = msg[3] / 5;
-		~effect.set(room: ~knob6);
+		~knob6 = msg[3];
+		~effect.set(\room, ~knob6);
 	}, '/knobMonitor6');
 	OSCdef('listenToKnob7', {
 		arg msg;
-		~knob7 = msg[3] / 5;
-		~effect.set(damp: ~knob7);
+		~knob7 = msg[3];
+		~effect.set(\damp, ~knob7);
 	}, '/knobMonitor7');
 	OSCdef('listenToKnob8', {
 		arg msg;
-		~knob8 = msg[3] / 5;
-		~effect.set(pan: ~knob8);
+		~knob8 = msg[3];
+		~effect.set(\amp, ~knob8);
 	}, '/knobMonitor8');
 
-	~modes = 9;
-	~mode = 0;
-	~leds = [6,7,10,2,3,0,1,4,5,8];
 
-	~instruments0 = [\cowbell, \kick1, \kick2, \kick3, \snare, \neurosnare, \clap, \hihat, \cowbell, \cowbell];
-	~instruments1 = [\cowbell, \kick2, \kick3, \snare, \neurosnare, \clap, \hihat, \cowbell, \cowbell, \kick];
-	~instruments2 = [\cowbell, \kick3, \snare, \neurosnare, \clap, \hihat, \cowbell, \cowbell, \kick, \kick1];
-	~instruments3 = [\cowbell, \snare, \neurosnare, \clap, \hihat, \cowbell, \cowbell, \kick, \kick1, \kick2];
-	~instruments4 = [\kick, \kick1, \kick2, \kick3, \kick, \kick1, \kick2, \kick3, \kick, \kick1];
-	~instruments5 = [\snare, \snare, \snare, \snare, \snare, \snare, \snare, \snare, \snare, \snare];
-	~instruments6 = [\clap, \clap, \clap, \clap, \clap, \clap, \clap, \clap, \clap, \clap];
-	~instruments7 = [\hihat, \hihat, \hihat, \hihat, \cowbell, \cowbell, \cowbell, \cowbell, \hihat, \hihat];
+	~instruments1 = [\kick3];
+	~instruments2 = [\hihat];
+	~instruments3 = [\clap];
+	~instruments4 = [\snare];
 
 	~buttonMonitor1 = {
 		var d15 = DigitalIn.kr(15);
@@ -340,29 +379,6 @@ s.waitForBoot{
 		});
 	}, '/buttonMonitor2');
 
-	~triggerMonitor0 = {
-		var a0 = AnalogIn.kr(0);
-		a0 = a0.round(0.05);
-		SendReply.kr(Changed.kr(a0), '/trigger0', [a0]);
-	}.play;
-
-	~triggerMonitor1 = {
-		var a1 = AnalogIn.kr(1);
-		a1 = a1.round(0.05);
-		SendReply.kr(Changed.kr(a1), '/trigger1', [a1]);
-	}.play;
-
-	~triggerMonitor2 = {
-		var a2 = AnalogIn.kr(2);
-		a2 = a2.round(0.05);
-		SendReply.kr(Changed.kr(a2), '/trigger2', [a2]);
-	}.play;
-
-	~triggerMonitor3 = {
-		var a3 = AnalogIn.kr(3);
-		a3 = a3.round(0.05);
-		SendReply.kr(Changed.kr(a3), '/trigger3', [a3]);
-	}.play;
 
 	~triggerMonitor4 = {
 		var d11 = DigitalIn.kr(11);
@@ -385,56 +401,11 @@ s.waitForBoot{
 	}.play;
 
 
-	// Listen to the triggers
-	OSCdef('listenToTrigger0', {
-		arg msg;
-		~trg0 = msg[3];
-		if (~trg0 >= 0.1, {
-			~synth1 = Synth(~instruments0[~mode], [amp: 1, gate: ~trg0]);
-			if (~btn1 != 1, {
-				Synth(\ledblink, [ledpin: ~leds[0]]);
-			});
-		});
-	}, '/trigger0');
-
-	OSCdef('listenToTrigger1', {
-		arg msg;
-		~trg1 = msg[3];
-		if (~trg1 >= 0.1, {
-			Synth(~instruments1[~mode], [amp: 1]);
-			if (~btn1 != 1, {
-				Synth(\ledblink, [ledpin: ~leds[1]]);
-			});
-		});
-	}, '/trigger1');
-
-	OSCdef('listenToTrigger2', {
-		arg msg;
-		~trg2 = msg[3];
-		if (~trg2 >= 0.1, {
-			Synth(~instruments2[~mode], [amp: 1]);
-			if (~btn1 != 1, {
-				Synth(\ledblink, [ledpin: ~leds[2]]);
-			});
-		});
-	}, '/trigger2');
-
-	OSCdef('listenToTrigger3', {
-		arg msg;
-		~trg3 = msg[3];
-		if (~trg3 >= 0.1, {
-			Synth(~instruments3[~mode], [amp: 1]);
-			if (~btn1 != 1, {
-				Synth(\ledblink, [ledpin: ~leds[3]]);
-			});
-		});
-	}, '/trigger3');
-
 	OSCdef('listenToTrigger4', {
 		arg msg;
 		~trg4 = msg[3].asInteger;
 		if (~trg4 == 1, {
-			Synth(~instruments4[~mode], [amp: 1]);
+			Synth(~instruments1[~mode], [amp: ~knob1]);
 			if (~btn1 != 1, {
 				Synth(\ledblink, [ledpin: ~leds[4]]);
 			});
@@ -445,7 +416,7 @@ s.waitForBoot{
 		arg msg;
 		~trg5 = msg[3].asInteger;
 		if (~trg5 == 1, {
-			Synth(~instruments5[~mode], [amp: 1]);
+			Synth(~instruments2[~mode], [amp: ~knob2]);
 			if (~btn1 != 1, {
 				Synth(\ledblink, [ledpin: ~leds[5]]);
 			});
@@ -456,7 +427,7 @@ s.waitForBoot{
 		arg msg;
 		~trg6 = msg[3].asInteger;
 		if (~trg6 == 1, {
-			Synth(~instruments6[~mode], [amp: 1]);
+			Synth(~instruments3[~mode], [amp: ~knob3]);
 			if (~btn1 != 1, {
 				Synth(\ledblink, [ledpin: ~leds[6]]);
 			});
@@ -467,13 +438,96 @@ s.waitForBoot{
 		arg msg;
 		~trg7 = msg[3].asInteger;
 		if (~trg7 == 1, {
-			Synth(~instruments7[~mode], [amp: 1]);
+			Synth(~instruments4[~mode], [amp: ~knob4]);
 			if (~btn1 != 1, {
 				Synth(\ledblink, [ledpin: ~leds[7]]);
 			});
 		});
 	}, '/trigger7');
+
 	s.sync;
 
-	~effect = Synth(\reverb);
+	// register functions:
+	// send pitch and gate
+	SynthDef(\cvout, {
+	    arg opin, tpin, lpin, gate=0,note=0.5;
+		AnalogOut.kr(opin, note);
+		AnalogOut.kr(tpin,output:gate);
+		DigitalIO.kr(lpin, output:gate, pinMode:1 );
+	}).send(s);
+
+	s.sync;
+
+	// setup for cv pitch/trig mappings
+	~cvsynths = [
+		Synth(\cvout,[\opin, ~cv1_out, \tpin, ~t1_out, \lpin, ~leds[0]] ),
+		Synth(\cvout,[\opin, ~cv2_out, \tpin, ~t2_out, \lpin, ~leds[1]] ),
+		Synth(\cvout,[\opin, ~cv3_out, \tpin, ~t3_out, \lpin, ~leds[2]] ),
+		Synth(\cvout,[\opin, ~cv4_out, \tpin, ~t4_out, \lpin, ~leds[3]] )
+	];
+
+	~midipoly = [0, 0, 0, 0];
+
+	s.sync;
+
+
+	//  note on, send out pitch/gate (midi channel 1-4)
+	MIDIdef.noteOn(\noteon, {
+		arg vel, note, chan;
+		var v = note.linlin(0,120,0,1);
+		var found = false;
+		[note, v , vel, "note on"].postln;
+		~midipoly.do({ arg key, i;
+			if (found == false, {
+				if (key == 0, {
+					~midipoly[i] = v;
+					~cvsynths[i].set(\note, v);
+					~cvsynths[i].set(\gate, vel>0);
+					found = true;
+				});
+			});
+		});
+	},chan:[0,1,2,3]);
+
+	//  note off, send out pitch/gate (midi channel 1-4)
+	MIDIdef.noteOff(\noteoff, {
+		arg vel, note, chan;
+		var v =note.linlin(0,120,0,1);
+		~midipoly.do({ arg key, i;
+			if (key == v, {
+				~midipoly[i] = 0;
+				~cvsynths[i].set(\note, v);
+				~cvsynths[i].set(\gate, 0);
+			});
+		});
+	},chan:[0,1,2,3]);
+
+	~initialize_values = {
+		var a0 = AnalogIn.kr(0);
+		var a1 = AnalogIn.kr(1);
+		var a2 = AnalogIn.kr(2);
+		var a3 = AnalogIn.kr(3);
+		var a4 = AnalogIn.kr(4);
+		var a5 = AnalogIn.kr(5);
+		var a6 = AnalogIn.kr(6);
+		var a7 = AnalogIn.kr(7);
+		a0 = a0.round(0.05);
+		a1 = a1.round(0.05);
+		a2 = a2.round(0.05);
+		a3 = a3.round(0.05);
+		a4 = a4.round(0.05);
+		a5 = a5.round(0.05);
+		a6 = a6.round(0.05);
+		a7 = a7.round(0.05);
+		SendReply.kr(Changed.kr(a0), '/knobMonitor1', [a0]);
+		SendReply.kr(Changed.kr(a1), '/knobMonitor2', [a1]);
+		SendReply.kr(Changed.kr(a2), '/knobMonitor3', [a2]);
+		SendReply.kr(Changed.kr(a3), '/knobMonitor4', [a3]);
+		SendReply.kr(Changed.kr(a4), '/knobMonitor5', [a4]);
+		SendReply.kr(Changed.kr(a5), '/knobMonitor6', [a5]);
+		SendReply.kr(Changed.kr(a6), '/knobMonitor7', [a6]);
+		SendReply.kr(Changed.kr(a7), '/knobMonitor8', [a7]);
+	}.play;
+
+	s.sync;
 };
