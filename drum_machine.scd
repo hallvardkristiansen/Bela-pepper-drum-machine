@@ -6,7 +6,7 @@ s.options.numAnalogInChannels = 8; // can only be 2, 4 or 8
 s.options.numAnalogOutChannels = 8;
 s.options.numDigitalChannels = 16;
 s.options.maxLogins = 8;  	   // set max number of clients
-s.options.headphoneLevel = -14; // sets the headphone level to -14 dB: it might get loud
+s.options.headphoneLevel = 0; // sets the headphone level to -14 dB: it might get loud
 
 s.options.blockSize = 128;
 s.options.numInputBusChannels = 2;
@@ -37,7 +37,6 @@ s.waitForBoot{
 	~knob6 = 0.5;
 	~knob7 = 0.5;
 	~knob8 = 0.5;
-
 	~trg0 = 0;
 	~trg1 = 0;
 	~trg2 = 0;
@@ -245,7 +244,7 @@ s.waitForBoot{
 
 	s.sync;
 
-	~effect = Synth(\reverb, [amp: 0.8, pan: 0.0, mix: 0.0, room: 0.0, damp: 0.0]);
+	~rvrb = Synth(\reverb, [amp: 0.8, pan: 0.0, mix: 0.0, room: 0.0, damp: 0.0]);
 
 	~knobMonitor1 = {
 		var a0 = AnalogIn.kr(0);
@@ -308,29 +307,29 @@ s.waitForBoot{
 	OSCdef('listenToKnob5', {
 		arg msg;
 		~knob5 = msg[3];
-		~effect.set(\mix, ~knob5);
+		~rvrb.set(\mix, ~knob5);
 	}, '/knobMonitor5');
 	OSCdef('listenToKnob6', {
 		arg msg;
 		~knob6 = msg[3];
-		~effect.set(\room, ~knob6);
+		~rvrb.set(\room, ~knob6);
 	}, '/knobMonitor6');
 	OSCdef('listenToKnob7', {
 		arg msg;
 		~knob7 = msg[3];
-		~effect.set(\damp, ~knob7);
+		~rvrb.set(\damp, ~knob7);
 	}, '/knobMonitor7');
 	OSCdef('listenToKnob8', {
 		arg msg;
 		~knob8 = msg[3];
-		~effect.set(\amp, ~knob8);
+		~rvrb.set(\amp, ~knob8);
 	}, '/knobMonitor8');
 
 
-	~instruments1 = [\kick3];
-	~instruments2 = [\hihat];
-	~instruments3 = [\clap];
-	~instruments4 = [\snare];
+	~instruments1 = [\kick, \kick1, \kick2, \kick3, \kick, \kick1, \kick2, \kick3, \kick1, \kick2];
+	~instruments2 = [\hihat, \hihat, \hihat, \hihat, \hihat, \hihat, \hihat, \hihat, \hihat, \hihat];
+	~instruments3 = [\clap, \clap, \clap, \clap, \clap, \clap, \clap, \clap, \cowbell, \cowbell];
+	~instruments4 = [\snare, \snare, \snare, \snare, \neurosnare, \neurosnare, \neurosnare, \neurosnare, \snare, \neurosnare];
 
 	~buttonMonitor1 = {
 		var d15 = DigitalIn.kr(15);
@@ -450,9 +449,9 @@ s.waitForBoot{
 	// register functions:
 	// send pitch and gate
 	SynthDef(\cvout, {
-	    arg opin, tpin, lpin, gate=0,note=0.5;
-		AnalogOut.kr(opin, note);
-		AnalogOut.kr(tpin,output:gate);
+	    arg opin, tpin, lpin, gate=0,note=0,bend=0;
+		AnalogOut.kr(opin, output:note+bend);
+		AnalogOut.kr(tpin, output:gate);
 		DigitalIO.kr(lpin, output:gate, pinMode:1 );
 	}).send(s);
 
@@ -474,33 +473,105 @@ s.waitForBoot{
 	//  note on, send out pitch/gate (midi channel 1-4)
 	MIDIdef.noteOn(\noteon, {
 		arg vel, note, chan;
-		var v = note.linlin(0,120,0,1);
-		var found = false;
-		[note, v , vel, "note on"].postln;
-		~midipoly.do({ arg key, i;
-			if (found == false, {
-				if (key == 0, {
-					~midipoly[i] = v;
-					~cvsynths[i].set(\note, v);
-					~cvsynths[i].set(\gate, vel>0);
-					found = true;
+		if (note >= 20, {
+			var v = note.linlin(20,80,0,1);
+			var found = false;
+			[note, v , vel, "note on"].postln;
+			~midipoly.do({ arg key, i;
+				if (found == false, {
+					if (key == 0, {
+						~midipoly[i] = note;
+						~cvsynths[i].set(\note, v);
+						~cvsynths[i].set(\gate, vel>0);
+						found = true;
+					});
 				});
 			});
+		}, {
+			var relVelocity = vel.linlin(0,128,0,1);
+			if (note < 4, {
+				Synth(~instruments1[~mode], [amp: relVelocity]);
+				Synth(\ledblink, [ledpin: ~leds[4]]);
+			},{ if (note < 8, {
+				Synth(~instruments2[~mode], [amp: relVelocity]);
+				Synth(\ledblink, [ledpin: ~leds[5]]);
+			},{ if (note < 12, {
+				Synth(~instruments3[~mode], [amp: relVelocity]);
+				Synth(\ledblink, [ledpin: ~leds[6]]);
+			},{
+				Synth(~instruments4[~mode], [amp: relVelocity]);
+				Synth(\ledblink, [ledpin: ~leds[7]]);
+			})})});
 		});
-	},chan:[0,1,2,3]);
+	});
 
 	//  note off, send out pitch/gate (midi channel 1-4)
 	MIDIdef.noteOff(\noteoff, {
 		arg vel, note, chan;
-		var v =note.linlin(0,120,0,1);
 		~midipoly.do({ arg key, i;
-			if (key == v, {
+			if (key == note, {
 				~midipoly[i] = 0;
-				~cvsynths[i].set(\note, v);
 				~cvsynths[i].set(\gate, 0);
 			});
 		});
-	},chan:[0,1,2,3]);
+	});
+
+	MIDIdef.bend(\bendchange, {
+		arg val;
+		~midibend = val;
+		~cvsynths.do{arg cvout; cvout.set(\bend, val.linlin(0,16383,-0.2,0.2))};
+	});
+
+	MIDIdef.cc(\controlchange, {
+		arg amnt, cmnd, chan;
+		var lvl = amnt.linlin(0,127,0,1);
+		[cmnd, amnt, "control change"].postln;
+
+		if (cmnd == 7, { // F1 / Master
+		});
+		if (cmnd == 74, { // F2
+		});
+		if (cmnd == 71, { // F3
+		});
+		if (cmnd == 91, { // F4
+		});
+		if (cmnd == 93, { // F5
+		});
+		if (cmnd == 73, { // F6
+		});
+		if (cmnd == 72, { // F7
+		});
+		if (cmnd == 5, { // F8
+		});
+		if (cmnd == 84, { // F9
+		});
+
+		if (cmnd == 10, { // E1
+			~rvrb.set(\mix, lvl);
+		});
+		if (cmnd == 2, { // E2
+			~rvrb.set(\room, lvl);
+		});
+		if (cmnd == 12, { // E3
+			~rvrb.set(\damp, lvl);
+		});
+		if (cmnd == 13, { // E4
+			~rvrb.set(\amp, lvl);
+		});
+		if (cmnd == 75, { // E5
+			~rvrb.set(\mix, lvl);
+		});
+		if (cmnd == 76, { // E6
+			~rvrb.set(\room, lvl);
+		});
+		if (cmnd == 91, { // E7
+			~rvrb.set(\damp, lvl);
+		});
+		if (cmnd == 95, { // E8
+			~rvrb.set(\amp, lvl);
+		});
+	});
+
 
 	~initialize_values = {
 		var a0 = AnalogIn.kr(0);
