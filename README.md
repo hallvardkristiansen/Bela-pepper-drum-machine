@@ -11,6 +11,6 @@ Buttons swap instrument sets
 
 Audio input is passed through reverb and mixed with drums
 
-Supports midi input over USB to CV and trigger, currently only tested on a keyboard, but will expand on that later.
+Supports midi input over USB to CV and trigger, currently configured for M-Audio Code61 layout.
 
 Hardware here: https://shop.bela.io/pepper
